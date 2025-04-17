@@ -1,0 +1,17 @@
+// tsconfig.json
+{
+    "compilerOptions": {
+      // ... other options
+      "target": "es2020", // 或者其他合适的目标版本
+      "module": "NodeNext",
+      "moduleResolution": "NodeNext", // 添加或修改这一行
+      // ... 其他选项
+      "esModuleInterop": true,
+      "forceConsistentCasingInFileNames": true,
+      "strict": true,
+      "skipLibCheck": true,
+      "resolveJsonModule": true // Hardhat 项目通常需要这个
+    },
+    "include": ["./scripts", "./test", "./typechain-types"], // 确保包含你的脚本和测试目录
+    "files": ["./hardhat.config.ts"]
+  }
