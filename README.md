@@ -8,8 +8,7 @@
     ```
 2.  **运行合并后的脚本:**
     ```bash
-    # 如果你重命名了文件
-    npx hardhat run scripts/managePoolAndSwap.ts --network localhost
+    npx hardhat run scripts/managePoolAndSwapByVault.ts --network localhost
     ```
 
-现在，这个脚本会按顺序完成部署、铸币、授权、创建池、添加流动性以及执行 swap 的所有步骤，并在控制台显示各个阶段的信息和余额变化。
+现在，这个脚本会按顺序完成部署、铸币、授权、创建池、添加流动性、执行 swap 以及部署vault合约，质押并通过信号交易，最后全部赎回的所有步骤，并在控制台显示各个阶段的信息和余额变化。

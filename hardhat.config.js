@@ -3,8 +3,9 @@ require("@nomicfoundation/hardhat-toolbox"); // 导入 Hardhat Toolbox
 
 // 建议使用 dotenv 来管理敏感信息，如 RPC URL 和私钥
 // npm install dotenv --save-dev
-// require('dotenv').config();
+require('dotenv').config();
 
+INFURA_API_KEY = process.env.INFURA_API_KEY || ""
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
@@ -26,7 +27,7 @@ module.exports = {
         // 将 YOUR_MAINNET_RPC_URL 替换为你的以太坊主网 RPC URL
         // 例如 Alchemy 或 Infura 的 URL
         // 强烈建议使用环境变量存储 URL
-        url: process.env.MAINNET_RPC_URL || "https://mainnet.infura.io/v3/cd0c3d38512f48e0aa6142e0089a92fb",
+        url: process.env.MAINNET_RPC_URL || "https://mainnet.infura.io/v3/" + INFURA_API_KEY,
         // 可选：指定一个区块号进行 fork，以确保状态一致性
         // blockNumber: 19600000 // 例如
       },
