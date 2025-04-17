@@ -8,6 +8,8 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
+import "./PriceOracle.sol"; // 引入价格预言机合约
+
 
 /**
  * @title OracleGuidedVault
@@ -45,15 +47,23 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     bool public strategyEnabled = false;
     uint256 public signalTimeout = 15 minutes; // 信号超时时间
     uint256 public lastSignalTimestamp;
+
+    // 价格预言机
+    PriceOracle public priceOracle;
+
+    // 单一用户模式标识符
+    bool public constant isSingleUserMode = true;
     
-    // 构造函数
+    // 构造函数中添加价格预言机参数
     constructor(
         IERC20 _asset,
         string memory _name,
         string memory _symbol,
-        address _swapRouter
+        address _swapRouter,
+        address _priceOracle
     ) ERC4626(_asset) ERC20(_name, _symbol) Ownable(msg.sender) {
         swapRouter = ISwapRouter(_swapRouter);
+        priceOracle = PriceOracle(_priceOracle);
         
         // 设置角色
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -340,16 +350,221 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     }
     
     /**
-     * @notice 覆盖totalAssets方法
+     * @notice 更新价格预言机地址
+     * @param _priceOracle 新的价格预言机地址
+     */
+    function updatePriceOracle(address _priceOracle) external onlyRole(STRATEGY_MANAGER_ROLE) {
+        require(_priceOracle != address(0), "Invalid oracle address");
+        priceOracle = PriceOracle(_priceOracle);
+    }
+    
+    /**
+     * @notice 覆盖totalAssets方法，统计所有资产价值
      */
     function totalAssets() public view override returns (uint256) {
-        return IERC20(asset()).balanceOf(address(this));
+        address assetAddress = address(asset());
+        uint256 total = IERC20(assetAddress).balanceOf(address(this));
+
+        for (uint i = 0; i < tradingPairsList.length; i++) {
+            address token = tradingPairsList[i];
+            if (token != assetAddress && tradingPairs[token].isActive) {
+                uint256 balance = IERC20(token).balanceOf(address(this));
+                if (balance > 0) {
+                    try priceOracle.getTokenValueInAsset(token, assetAddress, balance) returns (uint256 value) {
+                        total += value;
+                    } catch {
+                        // 如果价格查询失败，忽略该代币
+                        // FIXME 在生产环境中可能需要更严格的错误处理
+                    }
+                }
+            }
+        }
+        return total;
     }
+
+    /**
+     * @notice 限制存款只能由合约所有者进行
+     */
+    function deposit(uint256 assets, address receiver) public override returns (uint256) {
+        if (isSingleUserMode) {
+            require(msg.sender == owner(), "Only owner can deposit");
+        }
+        return super.deposit(assets, receiver);
+    }
+
+    /**
+     * @notice 限制铸造只能由合约所有者进行
+     */
+    function mint(uint256 shares, address receiver) public override returns (uint256) {
+        if (isSingleUserMode) {
+            require(msg.sender == owner(), "Only owner can mint");
+        }
+        return super.mint(shares, receiver);
+    }
+
     
     /**
      * @notice 支持AccessControl的supportsInterface
      */
     function supportsInterface(bytes4 interfaceId) public view override(AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @notice 覆盖maxRedeem以实现单用户模式下的灵活赎回
+     * @param owner 赎回者地址
+     */
+    function maxRedeem(address owner) public view override returns (uint256) {
+        // 仅允许唯一用户赎回
+        if (owner != Ownable.owner()) return 0;
+        
+        // 单用户模式下，允许赎回所有份额
+        return balanceOf(owner);
+    }
+    
+    // /**
+    //  * @notice 覆盖beforeWithdraw钩子，在赎回前准备足够的流动性
+    //  */
+    // function beforeWithdraw(uint256 assets, uint256 shares) internal {
+    //     // 确保有足够的基础资产可用
+    //     _ensureSufficientLiquidity(assets);
+    // }
+    
+    /**
+     * @notice 智能流动性管理，按需卖出资产
+     * @param neededAmount 需要的基础资产数量
+     */
+    function _ensureSufficientLiquidity(uint256 neededAmount) internal {
+        address assetAddress = address(asset());
+        uint256 currentBalance = IERC20(assetAddress).balanceOf(address(this));
+        
+        // 如果已有足够流动性，直接返回
+        if (currentBalance >= neededAmount) return;
+        
+        uint256 additionalNeeded = neededAmount - currentBalance;
+        
+        // 按照持有比例卖出非基础资产，以最小化市场影响
+        // 获取当前持有的所有非基础资产及价值
+        uint256 totalNonBaseValue = 0;
+        uint256[] memory tokenValues = new uint256[](tradingPairsList.length);
+        
+        for (uint i = 0; i < tradingPairsList.length; i++) {
+            address token = tradingPairsList[i];
+            if (token != assetAddress && tradingPairs[token].isActive) {
+                uint256 balance = IERC20(token).balanceOf(address(this));
+                if (balance > 0) {
+                    try priceOracle.getTokenValueInAsset(token, assetAddress, balance) returns (uint256 value) {
+                        tokenValues[i] = value;
+                        totalNonBaseValue += value;
+                    } catch {
+                        tokenValues[i] = 0;
+                    }
+                }
+            }
+        }
+        
+        // 如果没有足够的非基础资产，返回（这种情况应该不会发生）
+        if (totalNonBaseValue < additionalNeeded) return;
+        
+        // 按比例卖出每种资产
+        for (uint i = 0; i < tradingPairsList.length; i++) {
+            address token = tradingPairsList[i];
+            if (token != assetAddress && tradingPairs[token].isActive && tokenValues[i] > 0) {
+                // 计算需要卖出的该资产的比例
+                uint256 portionToSell = (additionalNeeded * tokenValues[i]) / totalNonBaseValue;
+                
+                // 如果该资产价值小于需要的金额，全部卖出
+                uint256 balance = IERC20(token).balanceOf(address(this));
+                uint256 amountToSell;
+                
+                try priceOracle.getTokenValueInAsset(token, assetAddress, balance) returns (uint256 totalValue) {
+                    // 计算应该卖出的代币数量
+                    if (portionToSell >= totalValue) {
+                        amountToSell = balance; // 全部卖出
+                    } else {
+                        // 按比例卖出，略微多卖一点以考虑滑点
+                        amountToSell = (balance * portionToSell * 105) / (totalValue * 100);
+                        if (amountToSell > balance) amountToSell = balance;
+                    }
+                } catch {
+                    continue; // 如果价格查询失败，尝试下一个代币
+                }
+                
+                if (amountToSell > 0) {
+                    // 执行卖出
+                    TransferHelper.safeApprove(token, address(swapRouter), amountToSell);
+                    
+                    ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+                        tokenIn: token,
+                        tokenOut: assetAddress,
+                        fee: 3000,
+                        recipient: address(this),
+                        deadline: block.timestamp + 15 minutes,
+                        amountIn: amountToSell,
+                        amountOutMinimum: 0, // 在紧急流动性需求下允许零最小值
+                        sqrtPriceLimitX96: 0
+                    });
+                    
+                    uint256 received = swapRouter.exactInputSingle(params);
+                    
+                    // 更新需要的金额
+                    if (received >= additionalNeeded) {
+                        break;
+                    }
+                    additionalNeeded -= received;
+                }
+            }
+        }
+    }
+
+    /**
+     * @notice 实现部分赎回功能
+     * @param assets 要赎回的基础资产数量
+     * @param receiver 接收赎回资产的地址
+     * @return shares 销毁的份额数量
+     */
+    function partialWithdraw(
+        uint256 assets,
+        address receiver
+    ) external nonReentrant returns (uint256 shares) {
+        require(msg.sender == owner(), "Only owner can withdraw");
+        require(assets > 0, "Cannot withdraw 0 assets");
+        
+        // 计算需要销毁的份额
+        shares = previewWithdraw(assets);
+        
+        // 确保有足够的流动性
+        _ensureSufficientLiquidity(assets);
+        
+        // 执行提款
+        return withdraw(assets, receiver, msg.sender);
+    }
+    
+    /**
+     * @notice 实现百分比赎回功能
+     * @param percentage 要赎回的资产百分比 (基数10000，如2500表示25%)
+     * @param receiver 接收赎回资产的地址
+     * @return assets 赎回的资产数量
+     */
+    function percentageWithdraw(
+        uint256 percentage,
+        address receiver
+    ) external nonReentrant returns (uint256 assets) {
+        require(msg.sender == owner(), "Only owner can withdraw");
+        require(percentage > 0 && percentage <= 10000, "Invalid percentage");
+        
+        // 计算要赎回的资产价值
+        uint256 totalValue = totalAssets();
+        assets = (totalValue * percentage) / 10000;
+        
+        if (assets > 0) {
+            // 确保有足够的流动性
+            _ensureSufficientLiquidity(assets);
+            
+            // 执行提款
+            withdraw(assets, receiver, msg.sender);
+        }
+        
+        return assets;
     }
 }
