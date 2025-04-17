@@ -10,7 +10,7 @@ module.exports = {
   solidity: {
     compilers: [
       {
-        version: "0.8.24", // 确保版本与你的合约兼容，或者使用你的 0.8.28
+        version: "0.8.28", // 确保版本与你的合约兼容，或者使用你的 0.8.28
         settings: {
           optimizer: {
             enabled: true,
