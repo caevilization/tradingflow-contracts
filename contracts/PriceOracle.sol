@@ -62,7 +62,47 @@ contract PriceOracle is AccessControl {
         
         emit PriceUpdated(tokenB, tokenA, reversePrice);
     }
-    
+
+    /**
+     * @notice 批量更新多个币对的价格
+     * @param tokenAs 代币A地址数组
+     * @param tokenBs 代币B地址数组
+     * @param priceList 价格数组 (每个价格乘以10^18)
+     */
+    function updatePricesBatch(
+        address[] calldata tokenAs,
+        address[] calldata tokenBs,
+        uint256[] calldata priceList
+    ) external onlyRole(ORACLE_ROLE) {
+        uint256 length = tokenAs.length;
+        require(length > 0, "Empty arrays not allowed");
+        require(length == tokenBs.length && length == priceList.length, "Array lengths must match");
+        
+        for (uint256 i = 0; i < length; i++) {
+            address tokenA = tokenAs[i];
+            address tokenB = tokenBs[i];
+            uint256 price = priceList[i];
+            
+            require(tokenA != address(0) && tokenB != address(0), "Invalid token address");
+            require(price > 0, "Price must be positive");
+            
+            // 更新正向价格
+            bytes32 pairHash = _getPairHash(tokenA, tokenB);
+            prices[pairHash] = price;
+            lastUpdateTimestamp[pairHash] = block.timestamp;
+            
+            emit PriceUpdated(tokenA, tokenB, price);
+            
+            // 更新反向价格
+            bytes32 reversePairHash = _getPairHash(tokenB, tokenA);
+            uint256 reversePrice = (1e36) / price;
+            prices[reversePairHash] = reversePrice;
+            lastUpdateTimestamp[reversePairHash] = block.timestamp;
+            
+            emit PriceUpdated(tokenB, tokenA, reversePrice);
+        }
+    }
+
     /**
      * @notice 获取价格
      * @param tokenA 代币A地址
