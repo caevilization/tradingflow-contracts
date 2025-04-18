@@ -423,14 +423,6 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     }
     
     
-    // /**
-    //  * @notice 覆盖beforeWithdraw钩子，在赎回前准备足够的流动性
-    //  */
-    // function beforeWithdraw(uint256 assets, uint256 shares) internal {
-    //     // 确保有足够的基础资产可用
-    //     _ensureSufficientLiquidity(assets);
-    // }
-    
     /**
      * @notice 智能流动性管理，按需卖出资产
      * @param neededAmount 需要的基础资产数量
