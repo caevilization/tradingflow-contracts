@@ -307,6 +307,16 @@ def main():
     w3.eth.wait_for_transaction_receipt(tx_hash)
     print("质押完成.")
 
+    # --- 11. 打印金库持仓信息 ---
+    print("\n--- 金库持仓信息 ---")
+    portfolio = vault.functions.getPortfolioComposition().call()
+    base_asset_amount, token_addresses, token_amounts = portfolio
+    print(f"TKA: {from_wei(base_asset_amount)}")
+    for i in range(len(token_addresses)):
+        print(f"TKB: {from_wei(token_amounts[i])} (地址: {token_addresses[i]})")
+    print("--------------------")
+    
+
     # --- 11. Oracle信号：swap 30% TKA 为 TKB ---
     vault_tka_balance = token_a.functions.balanceOf(vault_address).call()
     swap_amount = vault_tka_balance * 30 // 100
