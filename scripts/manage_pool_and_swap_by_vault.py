@@ -278,7 +278,7 @@ def main():
     tx_hash = vault.functions.grantRole(strategy_manager_role, deployer).transact({'from': deployer})
     w3.eth.wait_for_transaction_receipt(tx_hash)
     
-    tx_hash = vault.functions.setTradingPair(token_b_address, 3000, 0).transact({'from': deployer})
+    tx_hash = vault.functions.setTradingPair(token_b_address, 10000, 0).transact({'from': deployer})
     w3.eth.wait_for_transaction_receipt(tx_hash)
     
     tx_hash = vault.functions.updateStrategySettings(True, 900).transact({'from': deployer})
@@ -340,18 +340,18 @@ def main():
     for i in range(len(token_addresses2)):
         print(f"TKB: {from_wei(token_amounts2[i])} (地址: {token_addresses2[i]})")
 
-    # --- 15. 用户赎回全部 TKA，打印余额变化 ---
-    user_tka_before = token_a.functions.balanceOf(deployer).call()
-    print("\n用户赎回全部 TKA...")
+    # # --- 15. 用户赎回全部 TKA，打印余额变化 ---
+    # user_tka_before = token_a.functions.balanceOf(deployer).call()
+    # print("\n用户赎回全部 TKA...")
     
-    vault_share = vault.functions.balanceOf(deployer).call()
-    tx_hash = vault.functions.redeem(vault_share, deployer, deployer).transact({'from': deployer})
-    w3.eth.wait_for_transaction_receipt(tx_hash)
+    # vault_share = vault.functions.balanceOf(deployer).call()
+    # tx_hash = vault.functions.redeem(vault_share, deployer, deployer).transact({'from': deployer})
+    # w3.eth.wait_for_transaction_receipt(tx_hash)
     
-    user_tka_after = token_a.functions.balanceOf(deployer).call()
-    print(f"用户赎回前 TKA: {from_wei(user_tka_before)}")
-    print(f"用户赎回后 TKA: {from_wei(user_tka_after)}")
-    print(f"TKA 增加: {from_wei(user_tka_after - user_tka_before)}")
+    # user_tka_after = token_a.functions.balanceOf(deployer).call()
+    # print(f"用户赎回前 TKA: {from_wei(user_tka_before)}")
+    # print(f"用户赎回后 TKA: {from_wei(user_tka_after)}")
+    # print(f"TKA 增加: {from_wei(user_tka_after - user_tka_before)}")
 
     print("--------------------")
     print("\n脚本执行完毕.")

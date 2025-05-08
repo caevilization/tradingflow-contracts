@@ -548,6 +548,75 @@ def transfer_tokens(w3, account, token_address, recipient, amount):
         print(f"错误: 转移代币失败 - {str(e)}")
         return False
 
+
+def manage_role(w3, vault, account, role_name, target_address, revoke=False):
+    """授予或撤销角色权限"""
+    try:
+        # 获取角色名对应的bytes32值
+        if role_name.upper() == "ORACLE":
+            role = vault.functions.ORACLE_ROLE().call()
+        elif role_name.upper() == "STRATEGY_MANAGER":
+            role = vault.functions.STRATEGY_MANAGER_ROLE().call()
+        elif role_name.upper() == "ADMIN":
+            role = vault.functions.DEFAULT_ADMIN_ROLE().call()
+        else:
+            print(f"错误: 未知角色 '{role_name}'，请使用 ORACLE, STRATEGY_MANAGER 或 ADMIN")
+            return False
+        
+        target = normalize_address(target_address)
+        
+        # 检查当前调用者是否有admin权限
+        admin_role = vault.functions.DEFAULT_ADMIN_ROLE().call()
+        has_admin = vault.functions.hasRole(admin_role, account).call()
+        if not has_admin:
+            print("错误: 账户没有 ADMIN 权限，无法管理角色")
+            return False
+        
+        if revoke:
+            print(f"撤销 {target_address} 的 {role_name} 角色...")
+            role_func = vault.functions.revokeRole(role, target)
+        else:
+            print(f"授予 {target_address} {role_name} 角色...")
+            role_func = vault.functions.grantRole(role, target)
+            
+        receipt = send_transaction(w3, account, role_func)
+        
+        if receipt.status == 1:
+            action = "撤销" if revoke else "授予"
+            print(f"成功{action} {role_name} 角色")
+            return True
+        else:
+            print("角色管理操作失败")
+            return False
+    except Exception as e:
+        print(f"错误: 管理角色失败 - {str(e)}")
+        return False
+
+
+def update_strategy_settings(w3, vault, account, enabled, timeout):
+    """更新策略设置"""
+    try:
+        # 检查是否有STRATEGY_MANAGER_ROLE权限
+        strategy_role = vault.functions.STRATEGY_MANAGER_ROLE().call()
+        has_role = vault.functions.hasRole(strategy_role, account).call()
+        if not has_role:
+            print("错误: 账户没有STRATEGY_MANAGER_ROLE权限，无法更新策略设置")
+            return False
+        
+        print(f"更新策略设置: 启用 = {enabled}, 信号超时 = {timeout}秒")
+        settings_func = vault.functions.updateStrategySettings(enabled, timeout)
+        receipt = send_transaction(w3, account, settings_func)
+        
+        if receipt.status == 1:
+            print("策略设置更新成功")
+            return True
+        else:
+            print("策略设置更新失败")
+            return False
+    except Exception as e:
+        print(f"错误: 更新策略设置失败 - {str(e)}")
+        return False
+
 # --- 主函数与命令行解析 ---
 def main():
     parser = argparse.ArgumentParser(description="Vault 操作命令行工具")
@@ -595,6 +664,17 @@ def main():
     pair_parser.add_argument("--min-exit", default="0", help="最小退出金额 (默认为 0)")
     pair_parser.add_argument("--disable", action="store_true", help="禁用交易对")
     
+    # 角色管理子命令
+    role_parser = subparsers.add_parser("role", help="管理金库角色")
+    role_parser.add_argument("role", choices=["oracle", "strategy_manager", "admin"], help="角色名称")
+    role_parser.add_argument("address", help="目标地址")
+    role_parser.add_argument("--revoke", action="store_true", help="撤销而不是授予角色")
+
+    # 策略设置子命令
+    strategy_parser = subparsers.add_parser("strategy", help="更新策略设置")
+    strategy_parser.add_argument("--enabled", type=bool, default=True, help="是否启用策略")
+    strategy_parser.add_argument("--timeout", type=int, default=900, help="信号超时时间（秒）")
+    
     # price 子命令
     price_parser = subparsers.add_parser("price", help="更新预言机价格")
     price_parser.add_argument("token_a", help="代币A地址")
@@ -611,7 +691,8 @@ def main():
     transfer_parser.add_argument("token", help="代币地址")
     transfer_parser.add_argument("recipient", help="接收方地址")
     transfer_parser.add_argument("amount", help="转移金额")
-    
+
+
     
     
     args = parser.parse_args()
@@ -620,9 +701,6 @@ def main():
         parser.print_help()
         return
     
-    if not args.vault:
-        print("错误: 未指定金库地址. 使用 --vault 参数或设置 DEFAULT_VAULT_ADDRESS")
-        return
     
     # 连接到 Web3
     w3 = connect_web3(args.rpc)
@@ -630,9 +708,26 @@ def main():
     
     # 获取账户
     account = get_account(w3, args.account)  # get_account 内部已包含规范化
-    
+
+    # 处理不需要 vault 的命令
+    if args.command == "mint":
+        token = normalize_address(args.token)
+        recipient = args.to if args.to is None else normalize_address(args.to)
+        mint_tokens(w3, account, token, args.amount, recipient)
+        return
+        
+    elif args.command == "transfer":
+        token = normalize_address(args.token)
+        recipient = normalize_address(args.recipient)
+        transfer_tokens(w3, account, token, recipient, args.amount)
+        return
+
+    # 检查金库地址是否提供（仅对需要金库的命令）
+    if not args.vault:
+        print("错误: 未指定金库地址. 使用 --vault 参数或设置 DEFAULT_VAULT_ADDRESS")
+        return
     # 加载合约
-    contracts = load_contracts(w3, args.vault)  # load_contracts 内部已包含规范化
+    contracts = load_contracts(w3, args.vault)  # load_contracts 内部已包含规范化    
     vault = contracts['vault']
     asset = contracts['asset']
     oracle = contracts['oracle']
@@ -671,14 +766,18 @@ def main():
         token_a = normalize_address(args.token_a)  # 添加规范化
         token_b = normalize_address(args.token_b)  # 添加规范化
         update_price(w3, oracle, account, token_a, token_b, args.price)
-    elif args.command == "mint":
-        token = normalize_address(args.token)
-        recipient = args.to if args.to is None else normalize_address(args.to)
-        mint_tokens(w3, account, token, args.amount, recipient)
-    elif args.command == "transfer":
-        token = normalize_address(args.token)
-        recipient = normalize_address(args.recipient)
-        transfer_tokens(w3, account, token, recipient, args.amount)
+    # 在执行子命令的部分添加
+    elif args.command == "role":
+        role_name = args.role
+        target = normalize_address(args.address)
+        manage_role(w3, vault, account, role_name, target, args.revoke)
+
+    elif args.command == "strategy":
+        update_strategy_settings(w3, vault, account, args.enabled, args.timeout)
+    else:
+        print("错误: 未知命令")
+        parser.print_help()
+        return
 
 if __name__ == "__main__":
     main()
