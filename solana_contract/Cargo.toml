@@ -1,0 +1,17 @@
+[package]
+name = "solana_contract"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+solana-client = "1.18"
+solana-sdk = "1.18"
+solana-program = "1.18"
+spl-token = "4.0"
+spl-associated-token-account = "2.2"
+# 下面是可选的 DEX SDK，比如 Orca
+orca = { git = "https://github.com/orca-so/typescript-sdk", optional = true }
+anchor-lang = "0.28.0"
+anchor-spl = "0.28.0"
+anyhow = "1.0"
+thiserror = "1.0"
