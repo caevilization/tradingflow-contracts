@@ -593,7 +593,7 @@ def manage_role(w3, vault, account, role_name, target_address, revoke=False):
         return False
 
 
-def update_strategy_settings(w3, vault, account, enabled, timeout):
+def update_strategy_settings(w3, vault, account, enabled):
     """更新策略设置"""
     try:
         # 检查是否有STRATEGY_MANAGER_ROLE权限
@@ -603,8 +603,8 @@ def update_strategy_settings(w3, vault, account, enabled, timeout):
             print("错误: 账户没有STRATEGY_MANAGER_ROLE权限，无法更新策略设置")
             return False
         
-        print(f"更新策略设置: 启用 = {enabled}, 信号超时 = {timeout}秒")
-        settings_func = vault.functions.updateStrategySettings(enabled, timeout)
+        print(f"更新策略设置: 启用 = {enabled}")
+        settings_func = vault.functions.updateStrategySettings(enabled)
         receipt = send_transaction(w3, account, settings_func)
         
         if receipt.status == 1:
@@ -673,7 +673,6 @@ def main():
     # 策略设置子命令
     strategy_parser = subparsers.add_parser("strategy", help="更新策略设置")
     strategy_parser.add_argument("--enabled", type=bool, default=True, help="是否启用策略")
-    strategy_parser.add_argument("--timeout", type=int, default=900, help="信号超时时间（秒）")
     
     # price 子命令
     price_parser = subparsers.add_parser("price", help="更新预言机价格")
@@ -773,7 +772,7 @@ def main():
         manage_role(w3, vault, account, role_name, target, args.revoke)
 
     elif args.command == "strategy":
-        update_strategy_settings(w3, vault, account, args.enabled, args.timeout)
+        update_strategy_settings(w3, vault, account, args.enabled)
     else:
         print("错误: 未知命令")
         parser.print_help()
