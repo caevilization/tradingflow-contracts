@@ -3,5 +3,5 @@ cache
 node_modules
 .env
 
-solana_contract/target
-solana_contract/dex_trader/target
+solana_contract/target/*
+solana_contract/dex_trader/target/*
