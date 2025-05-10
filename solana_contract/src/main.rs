@@ -3,9 +3,7 @@ use {
     solana_sdk::{
         commitment_config::CommitmentConfig,
         pubkey::Pubkey,
-        signature::{Keypair, read_keypair_file, Signer},
-        transaction::Transaction,
-        system_program,
+        signature::{read_keypair_file, Signer},
     },
     std::str::FromStr,
     std::env,
@@ -39,10 +37,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let sol_mint = Pubkey::from_str("So11111111111111111111111111111111111111112")?;
     let usdc_mint = Pubkey::from_str("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU")?;
 
-    // 这里需要填入实际的 whirlpool 地址和 token vault 地址
+    // 这里需要填入实际的 whirlpool 地址
     let whirlpool = Pubkey::from_str("YOUR_WHIRLPOOL_ADDRESS")?;
-    let token_vault_a = Pubkey::from_str("YOUR_TOKEN_VAULT_A_ADDRESS")?;
-    let token_vault_b = Pubkey::from_str("YOUR_TOKEN_VAULT_B_ADDRESS")?;
 
     println!("\n准备执行 SOL -> USDC swap");
     println!("请确保已经创建了相应的 token 账户并持有足够的代币");

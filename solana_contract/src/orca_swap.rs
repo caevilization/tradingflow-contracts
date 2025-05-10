@@ -1,11 +1,10 @@
 use {
     anchor_lang::prelude::*,
-    anchor_spl::token::{self, Token, TokenAccount},
+    anchor_spl::token::TokenAccount,
     solana_program::{
         instruction::{AccountMeta, Instruction},
         program::invoke,
         pubkey::Pubkey,
-        system_program,
     },
     std::str::FromStr,
 };
@@ -32,7 +31,8 @@ impl OrcaSwap {
         token_vault_b: &AccountInfo,
         token_program: &AccountInfo,
     ) -> Result<()> {
-        let whirlpool_program_id = Pubkey::from_str(ORCA_WHIRLPOOL_PROGRAM_ID)?;
+        let whirlpool_program_id = Pubkey::from_str(ORCA_WHIRLPOOL_PROGRAM_ID)
+            .map_err(|_| OrcaSwapError::InvalidWhirlpool)?;
 
         let accounts = vec![
             AccountMeta::new(*whirlpool.key, false),
