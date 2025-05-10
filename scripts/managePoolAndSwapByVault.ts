@@ -213,14 +213,23 @@ async function main() {
         }
     }
 
-    // --- 8. 部署金库合约 OracleGuidedVault ---
+    // --- 8.1. 部署本地价格预言机合约 ---
+    console.log("\n--- 部署本地价格预言机合约 PriceOracle ---");
+    const PriceOracleFactory = await ethers.getContractFactory("PriceOracle");
+    const priceOracle = await PriceOracleFactory.deploy();
+    await priceOracle.waitForDeployment();
+    const priceOracleAddress = await priceOracle.getAddress();
+    console.log("PriceOracle 部署到:", priceOracleAddress);
+
+    // --- 8.2. 部署金库合约 OracleGuidedVault ---
     console.log("\n--- 部署金库合约 OracleGuidedVault ---");
     const OracleGuidedVaultFactory = await ethers.getContractFactory("OracleGuidedVault");
     const vault = await OracleGuidedVaultFactory.deploy(
         tokenAAddress, // asset (TKA)
         "VaultTKA",
         "vTKA",
-        SWAP_ROUTER_ADDRESS
+        SWAP_ROUTER_ADDRESS,
+        priceOracleAddress // 新增参数：价格预言机地址
     );
     await vault.waitForDeployment();
     const vaultAddress = await vault.getAddress();

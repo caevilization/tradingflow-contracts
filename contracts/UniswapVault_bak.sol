@@ -51,24 +51,30 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     // 价格预言机
     PriceOracle public priceOracle;
 
-    // 单一用户模式标识符
+    // 投资者地址
+    address public investor; // 新增：存储投资者地址
+
+    // 单一用户模式标识符 - 现在指单一投资者
     bool public constant isSingleUserMode = true;
     
-    // 构造函数中添加价格预言机参数
+    // 构造函数中添加价格预言机参数 和 投资者地址
     constructor(
         IERC20 _asset,
         string memory _name,
         string memory _symbol,
         address _swapRouter,
-        address _priceOracle
+        address _priceOracle,
+        address _initialInvestor // 新增：初始投资者地址
     ) ERC4626(_asset) ERC20(_name, _symbol) Ownable(msg.sender) {
+        require(_initialInvestor != address(0), "Invalid investor address"); // 新增：检查投资者地址
         swapRouter = ISwapRouter(_swapRouter);
         priceOracle = PriceOracle(_priceOracle);
-        
-        // 设置角色
+        investor = _initialInvestor; // 新增：设置投资者
+
+        // 设置角色 - 部署者仍然是Owner和Admin
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(ORACLE_ROLE, msg.sender);
-        _grantRole(STRATEGY_MANAGER_ROLE, msg.sender);
+        _grantRole(ORACLE_ROLE, msg.sender); // 平台方控制预言机
+        _grantRole(STRATEGY_MANAGER_ROLE, msg.sender); // 平台方控制策略
     }
     
     /**
@@ -383,22 +389,28 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @notice 限制存款只能由合约所有者进行
+     * @notice 限制存款只能由指定的投资者进行
      */
     function deposit(uint256 assets, address receiver) public override returns (uint256) {
         if (isSingleUserMode) {
-            require(msg.sender == owner(), "Only owner can deposit");
+            // 修改：检查 investor 而不是 owner
+            require(msg.sender == investor, "Only the designated investor can deposit");
+            require(receiver == investor, "Receiver must be the investor"); // 强制接收者也是投资者
         }
+        // 如果允许多用户，则移除 isSingleUserMode 检查
         return super.deposit(assets, receiver);
     }
 
     /**
-     * @notice 限制铸造只能由合约所有者进行
+     * @notice 限制铸造只能由指定的投资者进行
      */
     function mint(uint256 shares, address receiver) public override returns (uint256) {
         if (isSingleUserMode) {
-            require(msg.sender == owner(), "Only owner can mint");
+            // 修改：检查 investor 而不是 owner
+            require(msg.sender == investor, "Only the designated investor can mint");
+            require(receiver == investor, "Receiver must be the investor"); // 强制接收者也是投资者
         }
+        // 如果允许多用户，则移除 isSingleUserMode 检查
         return super.mint(shares, receiver);
     }
 
@@ -411,17 +423,28 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @notice 覆盖maxRedeem以实现单用户模式下的灵活赎回
-     * @param owner 赎回者地址
+     * @notice 覆盖maxRedeem以实现单投资者模式下的灵活赎回
+     * @param owner 要检查的地址 (在ERC4626中参数名是owner，但我们检查investor)
      */
     function maxRedeem(address owner) public view override returns (uint256) {
-        // 仅允许唯一用户赎回
-        if (owner != Ownable.owner()) return 0;
-        
-        // 单用户模式下，允许赎回所有份额
-        return balanceOf(owner);
+        // 修改：检查传入的 owner 是否是 investor
+        if (owner != investor) return 0;
+
+        // 单投资者模式下，允许赎回所有份额
+        return balanceOf(investor); // 检查 investor 的余额
     }
-    
+
+    /**
+     * @notice 覆盖maxWithdraw以实现单投资者模式
+     * @param owner 要检查的地址 (在ERC4626中参数名是owner，但我们检查investor)
+     */
+    function maxWithdraw(address owner) public view override returns (uint256) {
+        // 修改：检查传入的 owner 是否是 investor
+        if (owner != investor) return 0;
+
+        // 单投资者模式下，允许提取所有资产
+        return previewRedeem(balanceOf(investor)); // 预览 investor 全部份额对应的资产
+    }
     
     /**
      * @notice 智能流动性管理，按需卖出资产
@@ -511,7 +534,7 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
     }
 
     /**
-     * @notice 实现部分赎回功能
+     * @notice 实现部分赎回功能 - 仅限投资者
      * @param assets 要赎回的基础资产数量
      * @param receiver 接收赎回资产的地址
      * @return shares 销毁的份额数量
@@ -520,21 +543,25 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
         uint256 assets,
         address receiver
     ) external nonReentrant returns (uint256 shares) {
-        require(msg.sender == owner(), "Only owner can withdraw");
+        // 修改：检查 investor 而不是 owner
+        require(msg.sender == investor, "Only the designated investor can withdraw");
+        require(receiver == investor, "Receiver must be the investor"); // 强制接收者也是投资者
         require(assets > 0, "Cannot withdraw 0 assets");
-        
+
         // 计算需要销毁的份额
+        // 注意：previewWithdraw内部会调用totalAssets，确保其准确性
         shares = previewWithdraw(assets);
-        
+        require(shares <= balanceOf(investor), "Withdraw amount exceeds balance"); // 增加检查
+
         // 确保有足够的流动性
         _ensureSufficientLiquidity(assets);
-        
-        // 执行提款
-        return withdraw(assets, receiver, msg.sender);
+
+        // 执行提款 - 调用者是 investor，所有者也是 investor
+        return withdraw(assets, receiver, investor);
     }
     
     /**
-     * @notice 实现百分比赎回功能
+     * @notice 实现百分比赎回功能 - 仅限投资者
      * @param percentage 要赎回的资产百分比 (基数10000，如2500表示25%)
      * @param receiver 接收赎回资产的地址
      * @return assets 赎回的资产数量
@@ -543,21 +570,73 @@ contract OracleGuidedVault is ERC4626, Ownable, ReentrancyGuard, AccessControl {
         uint256 percentage,
         address receiver
     ) external nonReentrant returns (uint256 assets) {
-        require(msg.sender == owner(), "Only owner can withdraw");
+        // 修改：检查 investor 而不是 owner
+        require(msg.sender == investor, "Only the designated investor can withdraw");
+        require(receiver == investor, "Receiver must be the investor"); // 强制接收者也是投资者
         require(percentage > 0 && percentage <= 10000, "Invalid percentage");
-        
-        // 计算要赎回的资产价值
-        uint256 totalValue = totalAssets();
-        assets = (totalValue * percentage) / 10000;
-        
-        if (assets > 0) {
-            // 确保有足够的流动性
-            _ensureSufficientLiquidity(assets);
-            
-            // 执行提款
-            withdraw(assets, receiver, msg.sender);
+
+        // 计算要赎回的份额
+        uint256 totalInvestorShares = balanceOf(investor);
+        uint256 sharesToRedeem = (totalInvestorShares * percentage) / 10000;
+
+        if (sharesToRedeem > 0) {
+            // 计算这些份额对应的资产数量
+            assets = previewRedeem(sharesToRedeem);
+
+            if (assets > 0) {
+                 // 确保有足够的流动性
+                _ensureSufficientLiquidity(assets);
+
+                // 执行赎回 - 调用者是 investor，所有者也是 investor
+                redeem(sharesToRedeem, receiver, investor);
+            } else {
+                // 如果计算出的资产为0（可能因为精度或总资产价值低），则不执行赎回
+                assets = 0;
+            }
+        } else {
+            assets = 0; // 如果计算出的份额为0，则赎回资产也为0
         }
-        
+
         return assets;
+    }
+
+    /**
+     * @notice 覆盖 withdraw 函数以强制执行投资者检查
+     */
+    function withdraw(
+        uint256 assets,
+        address receiver,
+        address owner // ERC4626 的 owner 参数，指份额所有者
+    ) public override nonReentrant returns (uint256 shares) {
+         if (isSingleUserMode) {
+            // 修改：检查调用者和份额所有者是否都是 investor
+            require(msg.sender == investor, "Only the designated investor can initiate withdraw");
+            require(owner == investor, "Shares owner must be the investor");
+            require(receiver == investor, "Receiver must be the investor");
+        }
+        // 确保流动性（如果需要）
+        _ensureSufficientLiquidity(assets);
+        return super.withdraw(assets, receiver, owner);
+    }
+
+     /**
+     * @notice 覆盖 redeem 函数以强制执行投资者检查
+     */
+    function redeem(
+        uint256 shares,
+        address receiver,
+        address owner // ERC4626 的 owner 参数，指份额所有者
+    ) public override nonReentrant returns (uint256 assets) {
+        if (isSingleUserMode) {
+            // 修改：检查调用者和份额所有者是否都是 investor
+            require(msg.sender == investor, "Only the designated investor can initiate redeem");
+            require(owner == investor, "Shares owner must be the investor");
+            require(receiver == investor, "Receiver must be the investor");
+        }
+        // 计算赎回所需的基础资产
+        assets = previewRedeem(shares);
+        // 确保流动性（如果需要）
+        _ensureSufficientLiquidity(assets);
+        return super.redeem(shares, receiver, owner);
     }
 }
