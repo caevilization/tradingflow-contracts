@@ -1,5 +1,5 @@
 {
-  "name": "my-vault-project",
+  "name": "solana_contract",
   "version": "1.0.0",
   "description": "Solana Vault Project Tests",
   "main": "index.js",

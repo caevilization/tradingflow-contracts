@@ -1,15 +1,18 @@
+[toolchain]
+package_manager = "yarn"
+
 [features]
-seeds = false
+resolution = true
 skip-lint = false
 
 [programs.localnet]
-solana_contract = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+solana_contract = "3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
