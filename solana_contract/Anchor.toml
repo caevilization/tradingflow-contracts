@@ -2,7 +2,7 @@
 package_manager = "yarn"
 
 [features]
-resolution = true
+seeds = false
 skip-lint = false
 
 [programs.localnet]
@@ -12,7 +12,7 @@ solana_contract = "3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "Localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
