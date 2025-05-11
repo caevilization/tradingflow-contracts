@@ -10,7 +10,7 @@ skip-lint = false
 solana_contract = "3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr"
 
 [programs.devnet]
-solana_contract = "3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr"
+solana_contract = "9qnGKDzVKH14aEqyvYTwrLjKnUgQtX179AntLUFgQLx8"
 
 [registry]
 url = "https://api.apr.dev"
