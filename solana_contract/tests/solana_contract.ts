@@ -1,5 +1,5 @@
-import * as anchor from "@coral-xyz/anchor";
-import { Program } from "@coral-xyz/anchor";
+import * as anchor from "@project-serum/anchor";
+import { Program } from "@project-serum/anchor";
 import { SolanaContract } from "../target/types/solana_contract";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, createAccount } from "@solana/spl-token";
@@ -32,19 +32,29 @@ describe("solana_contract", () => {
   });
 
   it("初始化金库", async () => {
-    const vaultName = "测试金库";
+    // 创建金库
+    const [vault] = await PublicKey.findProgramAddress(
+      [Buffer.from("vault"), baseTokenMint.toBuffer()],
+      program.programId
+    );
     
-    const tx = await program.methods
-      .initializeVault(vaultName)
+    // 创建策略账户
+    const [strategy] = await PublicKey.findProgramAddress(
+      [Buffer.from("strategy"), vault.toBuffer()],
+      program.programId
+    );
+    
+    // 调用初始化函数
+    await program.methods
+      .initializeVault("测试金库")
       .accounts({
-        authority: authority.publicKey,
-        baseTokenMint: baseTokenMint,
-        // 其他账户...
+        authority: provider.wallet.publicKey,
+        vault,
+        strategy,
+        baseTokenMint,
+        // ... 其他必要的账户
       })
-      .signers([authority])
       .rpc();
-      
-    console.log("金库初始化交易签名:", tx);
   });
 
   it("设置交易对", async () => {
