@@ -1,6 +1,5 @@
 use {
     anchor_lang::prelude::*,
-    anchor_spl::token::TokenAccount,
     solana_program::{
         instruction::{AccountMeta, Instruction},
         program::invoke,
@@ -22,14 +21,14 @@ pub struct OrcaSwapParams {
 pub struct OrcaSwap;
 
 impl OrcaSwap {
-    pub fn swap(
-        program_id: &Pubkey,
-        params: &OrcaSwapParams,
-        user_token_account: &AccountInfo,
-        whirlpool: &AccountInfo,
-        token_vault_a: &AccountInfo,
-        token_vault_b: &AccountInfo,
-        token_program: &AccountInfo,
+    pub fn swap<'a>(
+        _program_id: &Pubkey,
+        _params: &OrcaSwapParams,
+        user_token_account: &AccountInfo<'a>,
+        whirlpool: &AccountInfo<'a>,
+        token_vault_a: &AccountInfo<'a>,
+        token_vault_b: &AccountInfo<'a>,
+        token_program: &AccountInfo<'a>,
     ) -> Result<()> {
         let whirlpool_program_id = Pubkey::from_str(ORCA_WHIRLPOOL_PROGRAM_ID)
             .map_err(|_| OrcaSwapError::InvalidWhirlpool)?;
@@ -76,4 +75,4 @@ pub enum OrcaSwapError {
     InvalidTokenAccount,
     #[msg("Insufficient liquidity")]
     InsufficientLiquidity,
-} 
+}
