@@ -3,7 +3,7 @@ use anchor_lang::solana_program;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use anchor_spl::associated_token::AssociatedToken;
 
-declare_id!("3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr");
+declare_id!("7nsTEo39qMPazWxfPSezWSRMBJ7wTF52dB7JgG3t2X1T");
 
 // 常量设置
 const STRATEGY_SEED: &[u8] = b"strategy";
