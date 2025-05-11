@@ -32,14 +32,14 @@ pub mod solana_contract {
         vault.authority = ctx.accounts.authority.key();
         vault.strategy = strategy.key();
         vault.name = name.clone();
-        vault.bump = *ctx.bumps.get("vault").unwrap();
+        vault.bump = ctx.bumps.vault;
         
         // 设置策略初始配置
         strategy.authority = ctx.accounts.authority.key();
         strategy.vault = ctx.accounts.vault.key();
         strategy.strategy_enabled = false;
         strategy.signal_timeout = 900; // 15分钟，以秒为单位
-        strategy.bump = *ctx.bumps.get("strategy").unwrap();
+        strategy.bump = ctx.bumps.strategy;
         strategy.last_signal_timestamp = 0;
         
         msg!("金库已初始化: {}", name);
@@ -198,10 +198,10 @@ pub mod solana_contract {
         }
         
         // 创建临时签名者PDA来授权转账
-        let vault_seeds = [
+        let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[*ctx.bumps.get("vault_authority").unwrap()]
+            &[ctx.bumps.vault_authority],
         ];
         
         // 从金库转移代币到Jupiter程序
@@ -214,7 +214,7 @@ pub mod solana_contract {
             };
             
             let cpi_program = ctx.accounts.token_program.to_account_info();
-            let cpi_signer_seeds = &[&vault_seeds[..]];
+            let cpi_signer_seeds = &[&vault_authority_seeds[..]];
             
             let cpi_ctx = CpiContext::new_with_signer(
                 cpi_program,
@@ -305,10 +305,10 @@ pub mod solana_contract {
         });
         
         // 创建临时签名者PDA来授权转账
-        let vault_seeds = [
+        let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[*ctx.bumps.get("vault_authority").unwrap()]
+            &[ctx.bumps.vault_authority],
         ];
         
         // 从金库转移代币到Jupiter程序
@@ -321,7 +321,7 @@ pub mod solana_contract {
             };
             
             let cpi_program = ctx.accounts.token_program.to_account_info();
-            let cpi_signer_seeds = &[&vault_seeds[..]];
+            let cpi_signer_seeds = &[&vault_authority_seeds[..]];
             
             let cpi_ctx = CpiContext::new_with_signer(
                 cpi_program,
@@ -402,10 +402,10 @@ pub mod solana_contract {
         token::transfer(cpi_ctx, amount)?;
         
         // 铸造份额代币
-        let vault_seeds = [
+        let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[*ctx.bumps.get("vault_authority").unwrap()]
+            &[ctx.bumps.vault_authority],
         ];
         
         let cpi_accounts = token::MintTo {
@@ -415,7 +415,7 @@ pub mod solana_contract {
         };
         
         let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_signer_seeds = &[&vault_seeds[..]];
+        let cpi_signer_seeds = &[&vault_authority_seeds[..]];
         
         let cpi_ctx = CpiContext::new_with_signer(
             cpi_program,
@@ -469,10 +469,10 @@ pub mod solana_contract {
         // 注意：在实际实现中，这里可能需要调用一个辅助函数来出售其他代币以获取基础资产
         
         // 销毁份额代币
-        let vault_seeds = [
+        let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[*ctx.bumps.get("vault_authority").unwrap()]
+            &[ctx.bumps.vault_authority],
         ];
         
         // 先销毁份额
@@ -498,7 +498,7 @@ pub mod solana_contract {
         };
         
         let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_signer_seeds = &[&vault_seeds[..]];
+        let cpi_signer_seeds = &[&vault_authority_seeds[..]];
         
         let cpi_ctx = CpiContext::new_with_signer(
             cpi_program,
@@ -549,10 +549,10 @@ pub mod solana_contract {
         );
         
         // 销毁份额代币
-        let vault_seeds = [
+        let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[*ctx.bumps.get("vault_authority").unwrap()]
+            &[ctx.bumps.vault_authority],
         ];
         
         // 先销毁份额
@@ -578,7 +578,7 @@ pub mod solana_contract {
         };
         
         let cpi_program = ctx.accounts.token_program.to_account_info();
-        let cpi_signer_seeds = &[&vault_seeds[..]];
+        let cpi_signer_seeds = &[&vault_authority_seeds[..]];
         
         let cpi_ctx = CpiContext::new_with_signer(
             cpi_program,
