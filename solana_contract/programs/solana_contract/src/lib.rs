@@ -755,7 +755,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 32 + 32 + 1 + 8 + 8 + 4 + (32 + 1 + 8 + 8) * 10 + 1, // 预留10个交易对空间
+        space = 8 + 32 + 32 + 1 + 8 + 8 + 4 + (32 + 1 + 8 + 8) * 5 + 1, // 减少到5个交易对空间
         seeds = [STRATEGY_SEED, vault.key().as_ref()],
         bump
     )]
