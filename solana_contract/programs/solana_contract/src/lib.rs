@@ -29,16 +29,16 @@ pub mod solana_contract {
         vault.base_token_mint = ctx.accounts.base_token_mint.key();
         vault.base_token_account = ctx.accounts.vault_base_token.key();
         vault.authority = ctx.accounts.authority.key();
-        vault.strategy = strategy.key(); // 使用已有的可变引用
+        vault.strategy = strategy.key();
         vault.name = name.clone();
-        vault.bump = ctx.bumps.vault; // 修改这里
+        vault.bump = *ctx.bumps.get("vault").unwrap();
         
         // 设置策略初始配置
         strategy.authority = ctx.accounts.authority.key();
         strategy.vault = ctx.accounts.vault.key();
         strategy.strategy_enabled = false;
         strategy.signal_timeout = 900; // 15分钟，以秒为单位
-        strategy.bump = ctx.bumps.strategy; // 修改这里
+        strategy.bump = *ctx.bumps.get("strategy").unwrap();
         strategy.last_signal_timestamp = 0;
         
         msg!("金库已初始化: {}", name);
@@ -200,7 +200,7 @@ pub mod solana_contract {
         let vault_seeds = [
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[ctx.bumps.vault_authority] // 修改这里
+            &[*ctx.bumps.get("vault_authority").unwrap()]
         ];
         
         // 从金库转移代币到Jupiter程序
@@ -307,7 +307,7 @@ pub mod solana_contract {
         let vault_seeds = [
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[ctx.bumps.vault_authority] // 修改这里
+            &[*ctx.bumps.get("vault_authority").unwrap()]
         ];
         
         // 从金库转移代币到Jupiter程序
@@ -404,7 +404,7 @@ pub mod solana_contract {
         let vault_seeds = [
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[ctx.bumps.vault_authority] // 修改这里
+            &[*ctx.bumps.get("vault_authority").unwrap()]
         ];
         
         let cpi_accounts = token::MintTo {
@@ -471,7 +471,7 @@ pub mod solana_contract {
         let vault_seeds = [
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[ctx.bumps.vault_authority] // 修改这里
+            &[*ctx.bumps.get("vault_authority").unwrap()]
         ];
         
         // 先销毁份额
@@ -551,7 +551,7 @@ pub mod solana_contract {
         let vault_seeds = [
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
-            &[ctx.bumps.vault_authority] // 修改这里
+            &[*ctx.bumps.get("vault_authority").unwrap()]
         ];
         
         // 先销毁份额
