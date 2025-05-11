@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount, Transfer};
 use anchor_spl::associated_token::AssociatedToken;
 
-declare_id!("FYT6Nd8Az21h31Wc7xLqeM8Ug8nkAEZnRmcrz991VNH5");
+declare_id!("3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr");
 
 // 常量设置
 const STRATEGY_SEED: &[u8] = b"strategy";
@@ -10,8 +10,12 @@ const VAULT_SEED: &[u8] = b"vault";
 const BASIS_POINTS: u64 = 10000; // 百分比基数，与EVM版本保持一致
 
 #[program]
-pub mod my_vault_project {
+pub mod solana_contract {
     use super::*;
+
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+        Ok(())
+    }
 
     // 修改 initialize_vault 函数中获取 bump 的方式
     pub fn initialize_vault(
@@ -960,3 +964,6 @@ pub struct UpdateInvestor<'info> {
     
     pub system_program: Program<'info, System>,
 }
+
+#[derive(Accounts)]
+pub struct Initialize {}
