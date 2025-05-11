@@ -5,3 +5,5 @@ node_modules
 
 solana_contract/target/*
 solana_contract/dex_trader/target/*
+
+solana_contract/test-ledger
