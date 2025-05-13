@@ -5,10 +5,10 @@ use anchor_spl::associated_token::AssociatedToken;
 
 declare_id!("7nsTEo39qMPazWxfPSezWSRMBJ7wTF52dB7JgG3t2X1T");
 
-// 常量设置
+// Constants
 const STRATEGY_SEED: &[u8] = b"strategy";
 const VAULT_SEED: &[u8] = b"vault";
-const BASIS_POINTS: u64 = 10000; // 百分比基数，与EVM版本保持一致
+const BASIS_POINTS: u64 = 10000; // Percentage base, consistent with EVM version
 
 #[program]
 pub mod solana_contract {
@@ -18,7 +18,7 @@ pub mod solana_contract {
         Ok(())
     }
 
-    // 修改 initialize_vault 函数中获取 bump 的方式
+    // Modify the way to get bump in initialize_vault function
     pub fn initialize_vault(
         ctx: Context<InitializeVault>,
         name: String,
@@ -26,7 +26,7 @@ pub mod solana_contract {
         let vault = &mut ctx.accounts.vault;
         let strategy = &mut ctx.accounts.strategy;
         
-        // 设置金库基本信息
+        // Set vault basic information
         vault.base_token_mint = ctx.accounts.base_token_mint.key();
         vault.base_token_account = ctx.accounts.vault_base_token.key();
         vault.authority = ctx.accounts.authority.key();
@@ -34,19 +34,19 @@ pub mod solana_contract {
         vault.name = name.clone();
         vault.bump = ctx.bumps.vault;
         
-        // 设置策略初始配置
+        // Set initial strategy configuration
         strategy.authority = ctx.accounts.authority.key();
         strategy.vault = ctx.accounts.vault.key();
         strategy.strategy_enabled = false;
-        strategy.signal_timeout = 900; // 15分钟，以秒为单位
+        strategy.signal_timeout = 900; // 15 minutes, in seconds
         strategy.bump = ctx.bumps.strategy;
         strategy.last_signal_timestamp = 0;
         
-        msg!("金库已初始化: {}", name);
+        msg!("Vault initialized: {}", name);
         Ok(())
     }
 
-    // 添加交易对
+    // Add trading pair
     pub fn set_trading_pair(
         ctx: Context<SetTradingPair>,
         max_allocation: u64,
@@ -60,13 +60,13 @@ pub mod solana_contract {
         let strategy = &mut ctx.accounts.strategy;
         let token_mint = ctx.accounts.token_mint.key();
         
-        // 检查策略管理权限
+        // Check strategy management permission
         require!(
             strategy.authority == ctx.accounts.authority.key(),
             MyVaultError::Unauthorized
         );
         
-        // 添加或更新交易对
+        // Add or update trading pair
         let mut found = false;
         for pair in &mut strategy.trading_pairs {
             if pair.token_mint == token_mint {
@@ -79,7 +79,7 @@ pub mod solana_contract {
         }
         
         if !found {
-            // 添加新的交易对
+            // Add new trading pair
             strategy.trading_pairs.push(TradingPair {
                 token_mint,
                 is_active: true,
@@ -88,24 +88,24 @@ pub mod solana_contract {
             });
         }
         
-        msg!("交易对已设置: {}", token_mint);
+        msg!("Trading pair set: {}", token_mint);
         Ok(())
     }
     
-    // 禁用交易对
+    // Disable trading pair
     pub fn disable_trading_pair(
         ctx: Context<SetTradingPair>,
     ) -> Result<()> {
         let strategy = &mut ctx.accounts.strategy;
         let token_mint = ctx.accounts.token_mint.key();
         
-        // 检查策略管理权限
+        // Check strategy management permission
         require!(
             strategy.authority == ctx.accounts.authority.key(),
             MyVaultError::Unauthorized
         );
         
-        // 禁用交易对
+        // Disable trading pair
         let mut found = false;
         for pair in &mut strategy.trading_pairs {
             if pair.token_mint == token_mint {
@@ -117,11 +117,11 @@ pub mod solana_contract {
         
         require!(found, MyVaultError::TradingPairNotActive);
         
-        msg!("交易对已禁用: {}", token_mint);
+        msg!("Trading pair disabled: {}", token_mint);
         Ok(())
     }
     
-    // 更新策略设置
+    // Update strategy settings
     pub fn update_strategy_settings(
         ctx: Context<UpdateStrategy>,
         strategy_enabled: bool,
@@ -129,21 +129,21 @@ pub mod solana_contract {
     ) -> Result<()> {
         let strategy = &mut ctx.accounts.strategy;
         
-        // 检查策略管理权限
+        // Check strategy management permission
         require!(
             strategy.authority == ctx.accounts.authority.key(),
             MyVaultError::Unauthorized
         );
         
-        // 更新策略配置
+        // Update strategy configuration
         strategy.strategy_enabled = strategy_enabled;
         strategy.signal_timeout = signal_timeout;
         
-        msg!("策略设置已更新: 启用={}, 超时={}秒", strategy_enabled, signal_timeout);
+        msg!("Strategy settings updated: Enabled={}, Timeout={} seconds", strategy_enabled, signal_timeout);
         Ok(())
     }
     
-    // 修改 execute_buy_signal 中的签名种子
+    // Modify execute_buy_signal function
     pub fn execute_buy_signal(
         ctx: Context<ExecuteTrade>,
         amount_to_swap: u64,
@@ -155,13 +155,13 @@ pub mod solana_contract {
         let vault = &ctx.accounts.vault;
         let token_mint = ctx.accounts.token_mint.key();
         
-        // 验证策略设置
+        // Verify strategy settings
         require!(
             strategy.strategy_enabled,
             MyVaultError::StrategyNotEnabled
         );
         
-        // 验证交易对
+        // Verify trading pair
         let trading_pair = strategy.trading_pairs
             .iter()
             .find(|p| p.token_mint == token_mint && p.is_active)
@@ -172,41 +172,41 @@ pub mod solana_contract {
             MyVaultError::AllocationExceedsMaximum
         );
         
-        // 获取金库中基础资产余额
+        // Get vault base balance
         let vault_base_balance = ctx.accounts.vault_base_token.amount;
         
-        // 验证交换金额不超过最大分配
+        // Verify swap amount does not exceed allocation
         let max_allowed_amount = (vault_base_balance * max_allocation_pct) / BASIS_POINTS;
         require!(
             amount_to_swap <= max_allowed_amount,
             MyVaultError::SwapAmountExceedsAllocation
         );
         
-        // 更新最后信号时间戳
+        // Update last signal timestamp
         strategy.last_signal_timestamp = Clock::get()?.unix_timestamp as u64;
         
-        // 发出事件
+        // Emit event
         emit!(SignalReceived {
             signal_type: SignalType::Buy,
             token_mint,
             timestamp: strategy.last_signal_timestamp,
         });
         
-        // 如果交换金额为零，直接返回
+        // If swap amount is zero, return immediately
         if amount_to_swap == 0 {
             return Ok(());
         }
         
-        // 创建临时签名者PDA来授权转账
+        // Create temporary signer PDA to authorize transfer
         let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
             &[ctx.bumps.vault_authority],
         ];
         
-        // 从金库转移代币到Jupiter程序
+        // Transfer tokens from vault to Jupiter program
         if amount_to_swap > 0 {
-            // 我们从金库转移代币到我们的临时账户，然后调用Jupiter进行交换
+            // We transfer tokens from vault to our temporary account, then call Jupiter for swap
             let cpi_accounts = Transfer {
                 from: ctx.accounts.vault_base_token.to_account_info(),
                 to: ctx.accounts.jupiter_user_token_account.to_account_info(),
@@ -224,7 +224,7 @@ pub mod solana_contract {
             
             token::transfer(cpi_ctx, amount_to_swap)?;
             
-            // 调用Jupiter执行交换
+            // Call Jupiter to execute swap
             let jupiter_program = ctx.accounts.jupiter_program.to_account_info();
             let accounts_vec: Vec<AccountInfo> = ctx.remaining_accounts.to_vec();
             let route_instruction = anchor_lang::solana_program::instruction::Instruction {
@@ -244,19 +244,19 @@ pub mod solana_contract {
                 &accounts_vec[..],
             )?;
             
-            // 记录事件
+            // Record event
             emit!(TradeExecuted {
                 signal_type: SignalType::Buy,
                 token_mint,
                 amount: amount_to_swap,
-                result: ctx.accounts.vault_token_account.amount, // 这只是近似值，后续可以使用更准确的方式
+                result: ctx.accounts.vault_token_account.amount, // This is an approximation, subsequent use can use a more accurate method
             });
         }
         
         Ok(())
     }
     
-    // 执行卖出信号
+    // Execute sell signal
     pub fn execute_sell_signal(
         ctx: Context<ExecuteTrade>,
         amount_to_sell: u64,
@@ -267,53 +267,53 @@ pub mod solana_contract {
         let vault = &ctx.accounts.vault;
         let token_mint = ctx.accounts.token_mint.key();
         
-        // 验证策略设置
+        // Verify strategy settings
         require!(
             strategy.strategy_enabled,
             MyVaultError::StrategyNotEnabled
         );
         
-        // 验证交易对
+        // Verify trading pair
         let trading_pair = strategy.trading_pairs
             .iter()
             .find(|p| p.token_mint == token_mint && p.is_active)
             .ok_or(MyVaultError::TradingPairNotActive)?;
         
-        // 获取金库中代币余额
+        // Get token balance in vault
         let token_balance = ctx.accounts.vault_token_account.amount;
         
-        // 如果代币余额为零，直接返回
+        // If token balance is zero, return immediately
         if token_balance == 0 {
             return Ok(());
         }
         
-        // 如果amount_to_sell为0或大于余额，则卖出全部
+        // If amount_to_sell is 0 or greater than balance, sell all
         let sell_amount = if amount_to_sell == 0 || amount_to_sell > token_balance {
             token_balance
         } else {
             amount_to_sell
         };
         
-        // 更新最后信号时间戳
+        // Update last signal timestamp
         strategy.last_signal_timestamp = Clock::get()?.unix_timestamp as u64;
         
-        // 发出事件
+        // Emit event
         emit!(SignalReceived {
             signal_type: SignalType::Sell,
             token_mint,
             timestamp: strategy.last_signal_timestamp,
         });
         
-        // 创建临时签名者PDA来授权转账
+        // Create temporary signer PDA to authorize transfer
         let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
             &[ctx.bumps.vault_authority],
         ];
         
-        // 从金库转移代币到Jupiter程序
+        // Transfer tokens from vault to Jupiter program
         if sell_amount > 0 {
-            // 我们从金库转移代币到我们的临时账户，然后调用Jupiter进行交换
+            // We transfer tokens from vault to our temporary account, then call Jupiter for swap
             let cpi_accounts = Transfer {
                 from: ctx.accounts.vault_token_account.to_account_info(),
                 to: ctx.accounts.jupiter_user_token_account.to_account_info(),
@@ -331,7 +331,7 @@ pub mod solana_contract {
             
             token::transfer(cpi_ctx, sell_amount)?;
             
-            // 调用Jupiter执行交换
+            // Call Jupiter to execute swap
             let jupiter_program = ctx.accounts.jupiter_program.to_account_info();
             let accounts_vec: Vec<AccountInfo> = ctx.remaining_accounts.to_vec();
             let route_instruction = anchor_lang::solana_program::instruction::Instruction {
@@ -351,42 +351,42 @@ pub mod solana_contract {
                 &accounts_vec[..],
             )?;
             
-            // 记录事件
+            // Record event
             emit!(TradeExecuted {
                 signal_type: SignalType::Sell,
                 token_mint,
                 amount: sell_amount,
-                result: ctx.accounts.vault_base_token.amount, // 这只是近似值，后续可以使用更准确的方式
+                result: ctx.accounts.vault_base_token.amount, // This is an approximation, subsequent use can use a more accurate method
             });
         }
         
         Ok(())
     }
 
-    // 存入基础资产
+    // Deposit base assets
     pub fn deposit(
         ctx: Context<Deposit>,
         amount: u64,
     ) -> Result<()> {
         let vault = &ctx.accounts.vault;
         
-        // 检查是否是指定的投资者
+        // Check if it's specified investor
         require!(
             vault.investor == ctx.accounts.authority.key(),
             MyVaultError::OnlyInvestorAllowed
         );
         
-        // 计算应该铸造的份额
+        // Calculate shares to mint
         let shares_to_mint = if ctx.accounts.vault_shares.supply == 0 {
-            // 首次存款，1:1铸造
+            // First deposit, 1:1 mint
             amount
         } else {
-            // 按比例计算份额
+            // Calculate shares proportionally
             let total_assets = ctx.accounts.vault_base_token.amount;
             (amount * ctx.accounts.vault_shares.supply) / total_assets
         };
         
-        // 转移代币到金库
+        // Transfer tokens to vault
         let cpi_accounts = Transfer {
             from: ctx.accounts.user_token.to_account_info(),
             to: ctx.accounts.vault_base_token.to_account_info(),
@@ -401,7 +401,7 @@ pub mod solana_contract {
         
         token::transfer(cpi_ctx, amount)?;
         
-        // 铸造份额代币
+        // Mint shares tokens
         let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
@@ -434,14 +434,14 @@ pub mod solana_contract {
         Ok(())
     }
 
-    // 提取一定比例的资产
+    // Withdraw a certain percentage of assets
     pub fn percentage_withdraw(
         ctx: Context<Withdraw>,
         percentage: u64,
     ) -> Result<()> {
         let vault = &ctx.accounts.vault;
         
-        // 检查是否是指定的投资者
+        // Check if it's specified investor
         require!(
             vault.investor == ctx.accounts.authority.key(),
             MyVaultError::OnlyInvestorAllowed
@@ -452,30 +452,30 @@ pub mod solana_contract {
             MyVaultError::InvalidPercentage
         );
         
-        // 计算要赎回的份额
+        // Calculate shares to redeem
         let total_shares = ctx.accounts.user_shares.amount;
         let shares_to_redeem = (total_shares * percentage) / BASIS_POINTS;
         
-        // 如果份额为0，直接返回
+        // If shares are 0, return immediately
         if shares_to_redeem == 0 {
             return Ok(());
         }
         
-        // 计算应该提取的资产数量
+        // Calculate assets to withdraw
         let total_assets = ctx.accounts.vault_base_token.amount;
         let assets_to_withdraw = (shares_to_redeem * total_assets) / ctx.accounts.vault_shares.supply;
         
-        // 确保金库中有足够的基础资产
-        // 注意：在实际实现中，这里可能需要调用一个辅助函数来出售其他代币以获取基础资产
+        // Ensure vault has enough base assets
+        // Note: In actual implementation, this may need to call an auxiliary function to sell other tokens to get base assets
         
-        // 销毁份额代币
+        // Burn shares tokens
         let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
             &[ctx.bumps.vault_authority],
         ];
         
-        // 先销毁份额
+        // First burn shares
         let cpi_accounts = token::Burn {
             mint: ctx.accounts.vault_shares.to_account_info(),
             from: ctx.accounts.user_shares.to_account_info(),
@@ -490,7 +490,7 @@ pub mod solana_contract {
         
         token::burn(cpi_ctx, shares_to_redeem)?;
         
-        // 转移代币到用户
+        // Transfer assets to user
         let cpi_accounts = Transfer {
             from: ctx.accounts.vault_base_token.to_account_info(),
             to: ctx.accounts.user_token.to_account_info(),
@@ -517,14 +517,14 @@ pub mod solana_contract {
         Ok(())
     }
 
-    // 提取指定数量的资产
+    // Withdraw a specified amount of assets
     pub fn partial_withdraw(
         ctx: Context<Withdraw>,
         amount: u64,
     ) -> Result<()> {
         let vault = &ctx.accounts.vault;
         
-        // 检查是否是指定的投资者
+        // Check if it's specified investor
         require!(
             vault.investor == ctx.accounts.authority.key(),
             MyVaultError::OnlyInvestorAllowed
@@ -532,30 +532,30 @@ pub mod solana_contract {
         
         require!(amount > 0, MyVaultError::InvalidWithdrawAmount);
         
-        // 计算应该销毁的份额
+        // Calculate shares to burn
         let total_assets = ctx.accounts.vault_base_token.amount;
         let shares_to_burn = (amount * ctx.accounts.vault_shares.supply) / total_assets;
         
-        // 确保用户有足够的份额
+        // Ensure user has enough shares
         require!(
             shares_to_burn <= ctx.accounts.user_shares.amount,
             MyVaultError::InsufficientShares
         );
         
-        // 确保金库中有足够的基础资产
+        // Ensure vault has enough base assets
         require!(
             amount <= ctx.accounts.vault_base_token.amount,
             MyVaultError::InsufficientVaultBalance
         );
         
-        // 销毁份额代币
+        // Burn shares tokens
         let vault_authority_seeds = &[
             VAULT_SEED,
             vault.base_token_mint.as_ref(),
             &[ctx.bumps.vault_authority],
         ];
         
-        // 先销毁份额
+        // First burn shares
         let cpi_accounts = token::Burn {
             mint: ctx.accounts.vault_shares.to_account_info(),
             from: ctx.accounts.user_shares.to_account_info(),
@@ -570,7 +570,7 @@ pub mod solana_contract {
         
         token::burn(cpi_ctx, shares_to_burn)?;
         
-        // 转移代币到用户
+        // Transfer assets to user
         let cpi_accounts = Transfer {
             from: ctx.accounts.vault_base_token.to_account_info(),
             to: ctx.accounts.user_token.to_account_info(),
@@ -597,35 +597,35 @@ pub mod solana_contract {
         Ok(())
     }
     
-    // 更新投资者
+    // Update investor
     pub fn update_investor(
         ctx: Context<UpdateInvestor>,
         new_investor: Pubkey,
     ) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         
-        // 检查是否是金库管理员
+        // Check if it's vault admin
         require!(
             vault.authority == ctx.accounts.authority.key(),
             MyVaultError::Unauthorized
         );
         
-        // 更新投资者
+        // Update investor
         vault.investor = new_investor;
         
-        msg!("投资者已更新为: {}", new_investor);
+        msg!("Investor updated to: {}", new_investor);
         Ok(())
     }
 }
 
-// 交易信号类型
+// Trading signal type
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq)]
 pub enum SignalType {
     Buy,
     Sell,
 }
 
-// 交易对定义
+// Trading pair definition
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy)]
 pub struct TradingPair {
     pub token_mint: Pubkey,
@@ -634,7 +634,7 @@ pub struct TradingPair {
     pub min_exit_amount: u64,
 }
 
-// Jupiter路由数据
+// Jupiter route data
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct JupiterRouteData {
     pub token_mint: Pubkey,
@@ -642,7 +642,7 @@ pub struct JupiterRouteData {
     pub route_data: Vec<u8>,
 }
 
-// 事件定义
+// Event definition
 #[event]
 pub struct SignalReceived {
     pub signal_type: SignalType,
@@ -672,72 +672,72 @@ pub struct Withdrawn {
     pub shares: u64,
 }
 
-// 错误代码
+// Error code
 #[error_code]
 pub enum MyVaultError {
-    #[msg("未授权操作")]
+    #[msg("Unauthorized operation")]
     Unauthorized,
     
-    #[msg("策略未启用")]
+    #[msg("Strategy not enabled")]
     StrategyNotEnabled,
     
-    #[msg("交易对未激活")]
+    #[msg("Trading pair not active")]
     TradingPairNotActive,
     
-    #[msg("分配超过最大限制")]
+    #[msg("Allocation exceeds maximum")]
     AllocationExceedsMaximum,
     
-    #[msg("交换金额超过分配")]
+    #[msg("Swap amount exceeds allocation")]
     SwapAmountExceedsAllocation,
     
-    #[msg("无效的分配百分比")]
+    #[msg("Invalid allocation percentage")]
     InvalidAllocation,
     
-    #[msg("无效的百分比值")]
+    #[msg("Invalid percentage value")]
     InvalidPercentage,
     
-    #[msg("份额不足")]
+    #[msg("Insufficient shares")]
     InsufficientShares,
     
-    #[msg("金库余额不足")]
+    #[msg("Insufficient vault balance")]
     InsufficientVaultBalance,
     
-    #[msg("只有指定投资者可以操作")]
+    #[msg("Only specified investor can operate")]
     OnlyInvestorAllowed,
     
-    #[msg("找不到账户")]
+    #[msg("Account not found")]
     AccountNotFound,
     
-    #[msg("无法提取0数量的资产")]
+    #[msg("Cannot withdraw 0 amount of assets")]
     InvalidWithdrawAmount,
 }
 
-// 金库账户结构
+// Vault account structure
 #[account]
 #[derive(Default)]
 pub struct Vault {
-    pub base_token_mint: Pubkey,     // 基础代币铸币厂
-    pub base_token_account: Pubkey,  // 基础代币账户
-    pub authority: Pubkey,           // 管理员
-    pub strategy: Pubkey,            // 策略账户
-    pub name: String,                // 金库名称
-    pub investor: Pubkey,            // 投资者
+    pub base_token_mint: Pubkey,     // Base token mint
+    pub base_token_account: Pubkey,  // Base token account
+    pub authority: Pubkey,           // Admin
+    pub strategy: Pubkey,            // Strategy account
+    pub name: String,                // Vault name
+    pub investor: Pubkey,            // Investor
     pub bump: u8,                    // PDA bump
 }
 
-// 策略账户结构
+// Strategy account structure
 #[account]
 pub struct Strategy {
-    pub authority: Pubkey,                 // 管理员
-    pub vault: Pubkey,                     // 关联的金库
-    pub strategy_enabled: bool,            // 策略是否启用
-    pub signal_timeout: u64,               // 信号超时时间(秒)
-    pub last_signal_timestamp: u64,        // 最后信号时间戳
-    pub trading_pairs: Vec<TradingPair>,   // 交易对列表
+    pub authority: Pubkey,                 // Admin
+    pub vault: Pubkey,                     // Associated vault
+    pub strategy_enabled: bool,            // Strategy enabled
+    pub signal_timeout: u64,               // Signal timeout (seconds)
+    pub last_signal_timestamp: u64,        // Last signal timestamp
+    pub trading_pairs: Vec<TradingPair>,   // Trading pair list
     pub bump: u8,                          // PDA bump
 }
 
-// 初始化金库指令
+// Initialize vault instruction
 #[derive(Accounts)]
 #[instruction(name: String)]
 pub struct InitializeVault<'info> {
@@ -756,7 +756,7 @@ pub struct InitializeVault<'info> {
     #[account(
         init,
         payer = authority,
-        space = 8 + 32 + 32 + 1 + 8 + 8 + 4 + (32 + 1 + 8 + 8) * 5 + 1, // 减少到5个交易对空间
+        space = 8 + 32 + 32 + 1 + 8 + 8 + 4 + (32 + 1 + 8 + 8) * 5 + 1, // Reduce to 5 trading pair spaces
         seeds = [STRATEGY_SEED, vault.key().as_ref()],
         bump
     )]
@@ -774,7 +774,7 @@ pub struct InitializeVault<'info> {
     )]
     pub vault_base_token: Account<'info, TokenAccount>,
     
-    /// CHECK: PDA作为金库权限
+    /// CHECK: PDA as vault authority
     #[account(
         seeds = [VAULT_SEED, base_token_mint.key().as_ref()],
         bump
@@ -797,7 +797,7 @@ pub struct InitializeVault<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-// 设置交易对指令
+// Set trading pair instruction
 #[derive(Accounts)]
 pub struct SetTradingPair<'info> {
     #[account(mut)]
@@ -811,7 +811,7 @@ pub struct SetTradingPair<'info> {
     pub vault: Account<'info, Vault>,
 }
 
-// 更新策略设置指令
+// Update strategy settings instruction
 #[derive(Accounts)]
 pub struct UpdateStrategy<'info> {
     #[account(mut)]
@@ -823,7 +823,7 @@ pub struct UpdateStrategy<'info> {
     pub vault: Account<'info, Vault>,
 }
 
-// 执行交易指令
+// Execute trade instruction
 #[derive(Accounts)]
 pub struct ExecuteTrade<'info> {
     #[account(mut)]
@@ -841,7 +841,7 @@ pub struct ExecuteTrade<'info> {
     #[account(mut)]
     pub vault_token_account: Account<'info, TokenAccount>,
     
-    /// CHECK: 交易中使用的PDA
+    /// CHECK: PDA used in transaction
     #[account(
         seeds = [VAULT_SEED, vault.base_token_mint.as_ref()],
         bump
@@ -850,21 +850,21 @@ pub struct ExecuteTrade<'info> {
     
     pub token_mint: Account<'info, Mint>,
     
-    /// CHECK: Jupiter会处理此账户
+    /// CHECK: Jupiter will handle this account
     #[account(mut)]
     pub jupiter_user_token_account: AccountInfo<'info>,
     
-    /// CHECK: Jupiter程序
+    /// CHECK: Jupiter program
     #[account(mut)]
     pub jupiter_program: AccountInfo<'info>,
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     
-    // 其余账户将作为剩余账户传递给Jupiter
+    // Remaining accounts will be passed as remaining accounts to Jupiter
 }
 
-// 紧急退出指令
+// Emergency exit instruction
 #[derive(Accounts)]
 pub struct EmergencyExit<'info> {
     #[account(mut)]
@@ -873,24 +873,24 @@ pub struct EmergencyExit<'info> {
     #[account(mut)]
     pub vault: Account<'info, Vault>,
     
-    /// CHECK: 交易中使用的PDA
+    /// CHECK: PDA used in transaction
     #[account(
         seeds = [VAULT_SEED, vault.base_token_mint.as_ref()],
         bump
     )]
     pub vault_authority: AccountInfo<'info>,
     
-    /// CHECK: Jupiter程序
+    /// CHECK: Jupiter program
     #[account(mut)]
     pub jupiter_program: AccountInfo<'info>,
     
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     
-    // 其余账户将作为剩余账户传递
+    // Remaining accounts will be passed as remaining accounts
 }
 
-// 存款指令
+// Deposit instruction
 #[derive(Accounts)]
 pub struct Deposit<'info> {
     #[account(mut)]
@@ -905,7 +905,7 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub vault_shares: Account<'info, Mint>,
     
-    /// CHECK: 交易中使用的PDA
+    /// CHECK: PDA used in transaction
     #[account(
         seeds = [VAULT_SEED, vault.base_token_mint.as_ref()],
         bump
@@ -922,7 +922,7 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// 提款指令
+// Withdraw instruction
 #[derive(Accounts)]
 pub struct Withdraw<'info> {
     #[account(mut)]
@@ -937,7 +937,7 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub vault_shares: Account<'info, Mint>,
     
-    /// CHECK: 交易中使用的PDA
+    /// CHECK: PDA used in transaction
     #[account(
         seeds = [VAULT_SEED, vault.base_token_mint.as_ref()],
         bump
@@ -954,7 +954,7 @@ pub struct Withdraw<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// 更新投资者指令
+// Update investor instruction
 #[derive(Accounts)]
 pub struct UpdateInvestor<'info> {
     #[account(mut)]

@@ -4,20 +4,20 @@ import { SolanaContract } from "../target/types/solana_contract";
 import { PublicKey, Keypair, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, createMint, createAccount, getAssociatedTokenAddress, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 
-describe("Solana 合约测试套件", () => {
-  console.log("=== 开始测试套件 ===");
+describe("Solana Contract Test Suite", () => {
+  console.log("=== Starting Test Suite ===");
   
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-  console.log("Provider 设置完成");
+  console.log("Provider setup completed");
 
   const program = anchor.workspace.SolanaContract as Program<SolanaContract>;
-  console.log("程序 ID:", program.programId.toString());
+  console.log("Program ID:", program.programId.toString());
   
-  // 测试账户
+  // Test accounts
   const authority = Keypair.generate();
   const investor = Keypair.generate();
-  console.log("测试账户创建完成");
+  console.log("Test accounts created");
   console.log("Authority:", authority.publicKey.toString());
   console.log("Investor:", investor.publicKey.toString());
   
@@ -31,9 +31,9 @@ describe("Solana 合约测试套件", () => {
   let userSharesAccount: PublicKey;
 
   before(async () => {
-    console.log("\n=== 开始设置测试环境 ===");
-    console.log("开始创建基础代币...");
-    // 创建基础代币
+    console.log("\n=== Starting Test Environment Setup ===");
+    console.log("Creating base token...");
+    // Create base token
     baseTokenMint = await createMint(
       provider.connection,
       authority,
@@ -41,10 +41,10 @@ describe("Solana 合约测试套件", () => {
       null,
       9
     );
-    console.log("基础代币创建完成:", baseTokenMint.toString());
+    console.log("Base token created:", baseTokenMint.toString());
 
-    // 创建用户代币账户
-    console.log("创建用户代币账户...");
+    // Create user token account
+    console.log("Creating user token account...");
     userTokenAccount = await getAssociatedTokenAddress(
       baseTokenMint,
       investor.publicKey
@@ -55,59 +55,59 @@ describe("Solana 合约测试套件", () => {
       baseTokenMint,
       investor.publicKey
     );
-    console.log("用户代币账户创建完成:", userTokenAccount.toString());
-    console.log("=== 测试环境设置完成 ===\n");
+    console.log("User token account created:", userTokenAccount.toString());
+    console.log("=== Test Environment Setup Completed ===\n");
   });
 
-  it("应该成功初始化金库", async () => {
-    console.log("\n=== 开始初始化金库测试 ===");
-    // 创建金库
+  it("should successfully initialize vault", async () => {
+    console.log("\n=== Starting Initialize Vault Test ===");
+    // Create vault
     [vault] = await PublicKey.findProgramAddress(
       [Buffer.from("vault"), baseTokenMint.toBuffer()],
       program.programId
     );
-    console.log("金库地址:", vault.toString());
+    console.log("Vault address:", vault.toString());
     
-    // 创建策略账户
+    // Create strategy account
     [strategy] = await PublicKey.findProgramAddress(
       [Buffer.from("strategy"), vault.toBuffer()],
       program.programId
     );
-    console.log("策略账户地址:", strategy.toString());
+    console.log("Strategy account address:", strategy.toString());
 
-    // 创建金库权限账户
+    // Create vault authority account
     [vaultAuthority] = await PublicKey.findProgramAddress(
       [Buffer.from("vault"), baseTokenMint.toBuffer()],
       program.programId
     );
-    console.log("金库权限账户:", vaultAuthority.toString());
+    console.log("Vault authority account:", vaultAuthority.toString());
 
-    // 创建金库基础代币账户
+    // Create vault base token account
     [vaultBaseToken] = await PublicKey.findProgramAddress(
       [Buffer.from("base_token"), vault.toBuffer()],
       program.programId
     );
-    console.log("金库基础代币账户:", vaultBaseToken.toString());
+    console.log("Vault base token account:", vaultBaseToken.toString());
 
-    // 创建金库份额代币账户
+    // Create vault shares token account
     [vaultShares] = await PublicKey.findProgramAddress(
       [Buffer.from("shares"), vault.toBuffer()],
       program.programId
     );
-    console.log("金库份额代币账户:", vaultShares.toString());
+    console.log("Vault shares token account:", vaultShares.toString());
 
-    // 创建用户份额账户
+    // Create user shares account
     userSharesAccount = await getAssociatedTokenAddress(
       vaultShares,
       investor.publicKey
     );
-    console.log("用户份额账户:", userSharesAccount.toString());
+    console.log("User shares account:", userSharesAccount.toString());
     
     try {
-      console.log("调用初始化函数...");
-      // 调用初始化函数
+      console.log("Calling initialize function...");
+      // Call initialize function
       const tx = await program.methods
-        .initializeVault("测试金库")
+        .initializeVault("Test Vault")
         .accounts({
           authority: provider.wallet.publicKey,
           vault,
@@ -122,21 +122,21 @@ describe("Solana 合约测试套件", () => {
           rent: anchor.web3.SYSVAR_RENT_PUBKEY,
         })
         .rpc();
-      console.log("金库初始化成功，交易签名:", tx);
-      console.log("=== 金库初始化测试完成 ===\n");
+      console.log("Vault initialized successfully, transaction signature:", tx);
+      console.log("=== Vault Initialization Test Completed ===\n");
     } catch (error) {
-      console.error("金库初始化失败:", error);
+      console.error("Vault initialization failed:", error);
       throw error;
     }
   });
 
-  it("应该成功设置交易对", async () => {
-    console.log("\n=== 开始设置交易对测试 ===");
+  it("should successfully set trading pair", async () => {
+    console.log("\n=== Starting Set Trading Pair Test ===");
     const maxAllocation = 5000; // 50%
     const minExitAmount = 1000000; // 1 SOL
     
     try {
-      console.log("调用设置交易对函数...");
+      console.log("Calling set trading pair function...");
       const tx = await program.methods
         .setTradingPair(maxAllocation, minExitAmount)
         .accounts({
@@ -147,20 +147,20 @@ describe("Solana 合约测试套件", () => {
         })
         .signers([authority])
         .rpc();
-      console.log("交易对设置成功，交易签名:", tx);
-      console.log("=== 交易对设置测试完成 ===\n");
+      console.log("Trading pair set successfully, transaction signature:", tx);
+      console.log("=== Trading Pair Set Test Completed ===\n");
     } catch (error) {
-      console.error("交易对设置失败:", error);
+      console.error("Trading pair set failed:", error);
       throw error;
     }
   });
 
-  it("应该成功进行存款", async () => {
-    console.log("\n=== 开始存款测试 ===");
+  it("should successfully deposit", async () => {
+    console.log("\n=== Starting Deposit Test ===");
     const amount = 1000000000; // 1 SOL
     
     try {
-      console.log("调用存款函数...");
+      console.log("Calling deposit function...");
       const tx = await program.methods
         .deposit(amount)
         .accounts({
@@ -176,20 +176,20 @@ describe("Solana 合约测试套件", () => {
         })
         .signers([investor])
         .rpc();
-      console.log("存款成功，交易签名:", tx);
-      console.log("=== 存款测试完成 ===\n");
+      console.log("Deposit successful, transaction signature:", tx);
+      console.log("=== Deposit Test Completed ===\n");
     } catch (error) {
-      console.error("存款失败:", error);
+      console.error("Deposit failed:", error);
       throw error;
     }
   });
 
-  it("应该成功进行提款", async () => {
-    console.log("\n=== 开始提款测试 ===");
+  it("should successfully withdraw", async () => {
+    console.log("\n=== Starting Withdraw Test ===");
     const percentage = 5000; // 50%
     
     try {
-      console.log("调用提款函数...");
+      console.log("Calling withdraw function...");
       const tx = await program.methods
         .percentageWithdraw(percentage)
         .accounts({
@@ -205,18 +205,18 @@ describe("Solana 合约测试套件", () => {
         })
         .signers([investor])
         .rpc();
-      console.log("提款成功，交易签名:", tx);
-      console.log("=== 提款测试完成 ===\n");
+      console.log("Withdraw successful, transaction signature:", tx);
+      console.log("=== Withdraw Test Completed ===\n");
     } catch (error) {
-      console.error("提款失败:", error);
+      console.error("Withdraw failed:", error);
       throw error;
     }
   });
 
-  it("应该正确处理未授权操作", async () => {
-    console.log("\n=== 开始未授权操作测试 ===");
+  it("should correctly handle unauthorized operation", async () => {
+    console.log("\n=== Starting Unauthorized Operation Test ===");
     try {
-      console.log("尝试未授权操作...");
+      console.log("Attempting unauthorized operation...");
       const tx = await program.methods
         .updateInvestor(investor.publicKey)
         .accounts({
@@ -227,8 +227,8 @@ describe("Solana 合约测试套件", () => {
         .signers([investor])
         .rpc();
     } catch (error) {
-      console.log("预期的未授权错误:", error);
-      console.log("=== 未授权操作测试完成 ===\n");
+      console.log("Expected unauthorized error:", error);
+      console.log("=== Unauthorized Operation Test Completed ===\n");
     }
   });
 });
