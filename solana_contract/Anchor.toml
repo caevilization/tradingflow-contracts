@@ -1,0 +1,23 @@
+[toolchain]
+package_manager = "yarn"
+anchor_version = "0.31.1"
+
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+solana_contract = "3VbEX2hXJ8vhEMTx9WNZE54ijmUFS53JZmCwQRSgAbMr"
+
+[programs.devnet]
+solana_contract = "7nsTEo39qMPazWxfPSezWSRMBJ7wTF52dB7JgG3t2X1T"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Devnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "anchor test"
